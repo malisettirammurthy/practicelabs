@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-operator-autoscaler
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-operator-autoscaler
+  template:
+    metadata:
+      labels:
+        app: nginx-operator-autoscaler
+    spec:
+      serviceAccountName: nginx-operator-autoscaler
+      containers:
+      - name: manager
+        image: rammurthymalisetti/nginx-operator-autoscaler:latest
+        imagePullPolicy: Always
+        ports:
+        - name: health
+          containerPort: 8081
+        livenessProbe:
+          httpGet: { path: /healthz, port: 8081 }
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: { path: /readyz, port: 8081 }
+          initialDelaySeconds: 5
+          periodSeconds: 10

@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx-operator-autoscaler
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nginx-operator-autoscaler-role
+  namespace: default
+rules:
+# CRD access (namespaced)
+- apiGroups: ["autoscaler.malisetti.dev"]
+  resources: ["nginxautoscalers", "nginxautoscalers/status"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+# Deployments
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+# Events (optional)
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nginx-operator-autoscaler-rb
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: nginx-operator-autoscaler
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nginx-operator-autoscaler-role

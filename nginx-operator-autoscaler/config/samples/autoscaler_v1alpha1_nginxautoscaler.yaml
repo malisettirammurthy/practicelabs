@@ -1,0 +1,16 @@
+apiVersion: autoscaler.malisetti.dev/v1alpha1
+kind: NginxAutoscaler
+metadata:
+  name: nginx-autoscaler-2
+  namespace: default
+spec:
+  targetDeployment: nginx-sample-deployment-2
+  promURL: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+  pollInterval: 15s
+  cooldown: 60s
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPU: 0.2
+  targetMem: 300
+  hysteresisPct: 10
+  stepLimit: 5
