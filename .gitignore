@@ -1,0 +1,2 @@
+terraform/eks-cluster/.terraform.lock.hcl
+terraform/eks-cluster/.terraform/
