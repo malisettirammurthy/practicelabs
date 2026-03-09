@@ -1,3 +1,5 @@
 terraform/eks-cluster/.terraform.lock.hcl
 terraform/eks-cluster/.terraform/
 nginx-operator-autoscaler/vendor/
+component_messaging/API_Based/order-service/venv/
+component_messaging/API_Based/analytics-service/venv/

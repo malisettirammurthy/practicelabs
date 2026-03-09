@@ -1,0 +1,168 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservices-demo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+  namespace: microservices-demo
+data:
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8081"
+  ANALYTICS_SERVICE_URL: "http://analytics-service:8082"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: microservices-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: rammurthymalisetti/order-service:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NOTIFICATION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: NOTIFICATION_SERVICE_URL
+            - name: ANALYTICS_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: ANALYTICS_SERVICE_URL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: microservices-demo
+spec:
+  selector:
+    app: order-service
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 31080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: microservices-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: rammurthymalisetti/notification-service:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: microservices-demo
+spec:
+  selector:
+    app: notification-service
+  type: NodePort
+  ports:
+  - port: 8081
+    targetPort: 8081
+    nodePort: 31081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: microservices-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+        - name: analytics-service
+          image: rammurthymalisetti/analytics-service:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: microservices-demo
+spec:
+  selector:
+    app: analytics-service
+  type: NodePort
+  ports:
+  - port: 8082
+    targetPort: 8082
+    nodePort: 31082
