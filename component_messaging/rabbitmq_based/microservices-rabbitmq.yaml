@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: microservices-demo
+data:
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USERNAME: "guest"
+  RABBITMQ_PASSWORD: "guest"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service-rmq
+  namespace: microservices-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service-rmq
+  template:
+    metadata:
+      labels:
+        app: order-service-rmq
+    spec:
+      containers:
+        - name: order-service-rmq
+          image: order-service:mq
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: rabbitmq-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-rmq
+  namespace: microservices-demo
+spec:
+  selector:
+    app: order-service-rmq
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 32080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service-rmq
+  namespace: microservices-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service-rmq
+  template:
+    metadata:
+      labels:
+        app: notification-service-rmq
+    spec:
+      containers:
+        - name: notification-service-rmq
+          image: notification-service:mq
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: rabbitmq-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service-rmq
+  namespace: microservices-demo
+spec:
+  selector:
+    app: notification-service-rmq
+  type: NodePort
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 32081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service-rmq
+  namespace: microservices-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-service-rmq
+  template:
+    metadata:
+      labels:
+        app: analytics-service-rmq
+    spec:
+      containers:
+        - name: analytics-service-rmq
+          image: analytics-service:mq
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: rabbitmq-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service-rmq
+  namespace: microservices-demo
+spec:
+  selector:
+    app: analytics-service-rmq
+  type: NodePort
+  ports:
+    - port: 8082
+      targetPort: 8082
+      nodePort: 32082
