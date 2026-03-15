@@ -1,0 +1,130 @@
+---
+# ── Consumer Deployment ──────────────────────────────────────────
+# This is the thing KEDA will scale up and down.
+# Starts with 1 replica. KEDA will add more when lag > 5000.
+# Max replicas = 3 (matches our partition count — no point having more)
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rollup-consumer
+  namespace: kafka
+spec:
+  replicas: 1                     # KEDA takes over after ScaledObject is applied
+  selector:
+    matchLabels:
+      app: rollup-consumer
+  template:
+    metadata:
+      labels:
+        app: rollup-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: python:3.12-slim
+          command:
+            - /bin/bash
+            - -c
+            - |
+              pip install kafka-python-ng -q
+              python3 - << 'PYEOF'
+              import os, json, time, signal, sys
+              from kafka import KafkaConsumer
+              from kafka.structs import OffsetAndMetadata
+
+              BOOTSTRAP = os.getenv("BOOTSTRAP", "kafka-headless.kafka.svc.cluster.local:9092")
+              GROUP     = os.getenv("GROUP_ID",  "rollup-worker")
+              TOPIC     = os.getenv("TOPIC",     "metrics.raw")
+              POD_NAME  = os.getenv("POD_NAME",  "unknown")
+
+              running = True
+              def stop(s, f): global running; running = False
+              signal.signal(signal.SIGTERM, stop)
+              signal.signal(signal.SIGINT,  stop)
+
+              print(f"[{POD_NAME}] starting  group={GROUP}  topic={TOPIC}", flush=True)
+
+              consumer = KafkaConsumer(
+                  TOPIC,
+                  bootstrap_servers=BOOTSTRAP,
+                  group_id=GROUP,
+                  auto_offset_reset="earliest",
+                  enable_auto_commit=False,
+                  value_deserializer=lambda b: json.loads(b.decode()),
+                  key_deserializer=lambda b: b.decode() if b else None,
+              )
+
+              count = 0
+              while running:
+                  batch = consumer.poll(timeout_ms=1000, max_records=50)
+                  for tp, msgs in batch.items():
+                      for m in msgs:
+                          count += 1
+                          # Simulate 2ms processing time per message
+                          time.sleep(0.002)
+                          if count % 100 == 0:
+                              print(f"[{POD_NAME}] processed {count} msgs  "
+                                    f"latest P{m.partition}:off{m.offset}", flush=True)
+                      consumer.commit({
+                          tp: OffsetAndMetadata(msgs[-1].offset + 1, None)
+                      })
+
+              consumer.close()
+              print(f"[{POD_NAME}] stopped. total={count}", flush=True)
+              PYEOF
+          env:
+            - name: BOOTSTRAP
+              value: "kafka-headless.kafka.svc.cluster.local:9092"
+            - name: GROUP_ID
+              value: "rollup-worker"
+            - name: TOPIC
+              value: "metrics.raw"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+
+---
+# ── KEDA ScaledObject ─────────────────────────────────────────────
+# Tells KEDA to watch consumer group 'rollup-worker' on topic
+# 'metrics.raw' and scale the Deployment based on lag.
+#
+# lagThreshold: "5000"
+#   → KEDA computes: desiredReplicas = totalLag / lagThreshold
+#   → lag=5000  → 1 replica
+#   → lag=10000 → 2 replicas
+#   → lag=15000 → 3 replicas (capped at maxReplicaCount)
+#
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: rollup-consumer-scaler
+  namespace: kafka
+spec:
+  scaleTargetRef:
+    name: rollup-consumer           # must match Deployment name above
+
+  minReplicaCount: 1                # always keep at least 1 consumer alive
+  maxReplicaCount: 3                # never exceed partition count (3)
+
+  # How long lag must stay below threshold before scaling back down
+  cooldownPeriod: 30                # seconds
+
+  # How often KEDA checks the lag (seconds)
+  pollingInterval: 5
+
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: "kafka-headless.kafka.svc.cluster.local:9092"
+        consumerGroup: "rollup-worker"
+        topic: "metrics.raw"
+        lagThreshold: "5000"        # scale up when lag per replica > 5000
+        offsetResetPolicy: "earliest"
