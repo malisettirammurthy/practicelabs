@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka & Kubernetes — Engineering Reference</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+
+  :root {
+    --bg:        #0d1117;
+    --bg2:       #161b22;
+    --bg3:       #21262d;
+    --border:    #30363d;
+    --border2:   #484f58;
+    --text:      #e6edf3;
+    --text2:     #8b949e;
+    --text3:     #6e7681;
+    --green:     #3fb950;
+    --green-dim: #1a4426;
+    --blue:      #58a6ff;
+    --blue-dim:  #0d2344;
+    --amber:     #d29922;
+    --amber-dim: #2d1f00;
+    --purple:    #bc8cff;
+    --purple-dim:#1e0a3c;
+    --red:       #f85149;
+    --red-dim:   #3b0d0c;
+    --teal:      #39d353;
+    --accent:    #58a6ff;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 0 0 40px;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-logo .title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-logo .sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 3px;
+    font-family: var(--mono);
+  }
+
+  .nav-section {
+    padding: 0 12px 8px;
+  }
+
+  .nav-section-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 12px 8px 6px;
+  }
+
+  .nav-link {
+    display: block;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text2);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    font-family: var(--mono);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-link:hover { background: var(--bg3); color: var(--text); }
+  .nav-link.active { background: var(--blue-dim); color: var(--blue); }
+
+  /* ── Main ── */
+  .main {
+    flex: 1;
+    min-width: 0;
+    max-width: 860px;
+    padding: 48px 56px 96px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    margin-bottom: 56px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .hero h1 {
+    font-family: var(--mono);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 span { color: var(--blue); }
+
+  .hero-desc {
+    font-size: 16px;
+    color: var(--text2);
+    max-width: 600px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  .tag-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+
+  .tag-green  { color: var(--green);  border-color: var(--green);  background: var(--green-dim); }
+  .tag-blue   { color: var(--blue);   border-color: var(--blue);   background: var(--blue-dim); }
+  .tag-amber  { color: var(--amber);  border-color: var(--amber);  background: var(--amber-dim); }
+  .tag-purple { color: var(--purple); border-color: var(--purple); background: var(--purple-dim); }
+
+  /* ── Sections ── */
+  .section {
+    margin-bottom: 64px;
+    animation: fadein 0.4s ease both;
+  }
+
+  @keyframes fadein { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform:none; } }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .section h2 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section h3 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--blue);
+    margin: 28px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section h3::before {
+    content: '▸';
+    color: var(--text3);
+    font-size: 12px;
+  }
+
+  .section p {
+    color: var(--text2);
+    margin-bottom: 14px;
+    font-weight: 300;
+  }
+
+  .section p strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 14px 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .code-copy {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .code-copy:hover { color: var(--blue); background: var(--blue-dim); }
+
+  pre {
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--bg3);
+    color: var(--purple);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  /* Syntax highlighting */
+  .kw  { color: #ff7b72; }  /* keywords */
+  .st  { color: #a5d6ff; }  /* strings  */
+  .cm  { color: #8b949e; font-style: italic; } /* comments */
+  .fn  { color: #d2a8ff; }  /* functions */
+  .nm  { color: #79c0ff; }  /* numbers/names */
+  .op  { color: #ff7b72; }  /* operators */
+  .gr  { color: #3fb950; }  /* green values */
+  .am  { color: #d29922; }  /* amber values */
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; margin: 14px 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--bg2);
+  }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  tr:hover td { background: var(--bg2); }
+  tr:last-child td { border-bottom: none; }
+
+  td strong { color: var(--text); font-weight: 500; }
+  td code { font-size: 12px; }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 14px 0;
+    border-left: 3px solid;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  .callout-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .callout p { margin: 0; font-size: 13.5px; }
+
+  .callout-blue   { background: var(--blue-dim);   border-color: var(--blue);   color: #a0c4ff; }
+  .callout-blue   .callout-title { color: var(--blue); }
+  .callout-green  { background: var(--green-dim);  border-color: var(--green);  color: #a0d9a0; }
+  .callout-green  .callout-title { color: var(--green); }
+  .callout-amber  { background: var(--amber-dim);  border-color: var(--amber);  color: #d4b064; }
+  .callout-amber  .callout-title { color: var(--amber); }
+  .callout-red    { background: var(--red-dim);    border-color: var(--red);    color: #f0a0a0; }
+  .callout-red    .callout-title { color: var(--red); }
+
+  /* ── Concept cards ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border2); }
+
+  .card-icon {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .card h4 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .card p {
+    font-size: 12.5px;
+    color: var(--text2);
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  /* ── Flow diagram (CSS-only) ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    gap: 4px;
+  }
+
+  .flow-node {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+
+  .flow-node.highlight { border-color: var(--blue); color: var(--blue); background: var(--blue-dim); }
+  .flow-node.green     { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+  .flow-node.amber     { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+
+  .flow-arrow {
+    color: var(--text3);
+    font-size: 16px;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── Partition diagram ── */
+  .partition-viz {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+
+  .partition {
+    flex: 1;
+    min-width: 160px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .partition-header {
+    background: var(--bg3);
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .partition-msg {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .partition-msg:last-child { border-bottom: none; }
+
+  .msg-off  { color: var(--text3); min-width: 32px; }
+  .msg-key  { color: var(--blue);  flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .msg-val  { color: var(--green); }
+
+  /* ── HWM diagram ── */
+  .hwm-row {
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+    margin: 16px 0 8px;
+    flex-wrap: wrap;
+  }
+
+  .hwm-msg {
+    width: 52px;
+    border-radius: 4px;
+    padding: 6px 4px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    border: 1px solid;
+  }
+
+  .hwm-msg.safe     { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+  .hwm-msg.pending  { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+
+  .hwm-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    margin-top: 6px;
+    gap: 2px;
+  }
+
+  .hwm-label-green { color: var(--green); }
+  .hwm-label-amber { color: var(--amber); }
+
+  /* ── Pill badges ── */
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-green  { background: var(--green-dim);  color: var(--green);  border: 1px solid var(--green); }
+  .badge-amber  { background: var(--amber-dim);  color: var(--amber);  border: 1px solid var(--amber); }
+  .badge-red    { background: var(--red-dim);    color: var(--red);    border: 1px solid var(--red); }
+  .badge-blue   { background: var(--blue-dim);   color: var(--blue);   border: 1px solid var(--blue); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid var(--purple); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { padding: 32px 24px 64px; }
+  }
+
+  @media print {
+    .sidebar { display: none; }
+    .main { padding: 24px; max-width: none; }
+    .section { page-break-inside: avoid; }
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  ul { padding-left: 20px; margin-bottom: 14px; }
+  li { color: var(--text2); margin-bottom: 5px; font-size: 14px; line-height: 1.6; }
+  li strong { color: var(--text); font-weight: 500; }
+
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- ── SIDEBAR ── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="title">Kafka Reference</div>
+    <div class="sub">v3.9 · KRaft · microk8s</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">Core Concepts</div>
+    <a href="#anatomy"       class="nav-link">Anatomy</a>
+    <a href="#topics"        class="nav-link">Topics &amp; Partitions</a>
+    <a href="#producers"     class="nav-link">Producers &amp; Acks</a>
+    <a href="#consumers"     class="nav-link">Consumers &amp; Groups</a>
+    <a href="#replication"   class="nav-link">Replication &amp; HWM</a>
+    <a href="#brokers"       class="nav-link">Brokers &amp; Controller</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">Design Patterns</div>
+    <a href="#partition-sizing"  class="nav-link">Partition Sizing</a>
+    <a href="#use-cases"         class="nav-link">Use Cases</a>
+    <a href="#stream-processing" class="nav-link">Stream Processing</a>
+    <a href="#failure-modes"     class="nav-link">Failure Modes</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">microk8s Setup</div>
+    <a href="#setup-deploy"  class="nav-link">Deploy Kafka</a>
+    <a href="#python-setup"  class="nav-link">Python Samples</a>
+    <a href="#keda"          class="nav-link">KEDA Autoscale</a>
+    <a href="#stack-manager" class="nav-link">Stack Manager</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">Quick Reference</div>
+    <a href="#cheatsheet"    class="nav-link">Decision Cheatsheet</a>
+    <a href="#commands"      class="nav-link">Useful Commands</a>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-eyebrow">Engineering Reference</div>
+    <h1>Apache <span>Kafka</span> &amp;<br>Kubernetes</h1>
+    <p class="hero-desc">
+      Complete reference for Kafka system design, deployment on microk8s,
+      Python client usage, KEDA autoscaling, and local stack management.
+    </p>
+    <div class="tag-row">
+      <span class="tag tag-green">Kafka 3.9 · KRaft</span>
+      <span class="tag tag-blue">microk8s</span>
+      <span class="tag tag-amber">Python</span>
+      <span class="tag tag-purple">KEDA autoscale</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Anatomy
+  ════════════════════════════════════════════ -->
+  <section class="section" id="anatomy">
+    <div class="section-label">Core Concepts</div>
+    <h2>Kafka Anatomy</h2>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon" style="color:var(--blue)">▸ Topic</div>
+        <h4>Named log</h4>
+        <p>A category of events. Append-only, durable, ordered. Think of it as the API contract between producer and consumer.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="color:var(--green)">▸ Partition</div>
+        <h4>Physical shard</h4>
+        <p>A topic is split into N partitions. Each lives on one broker (leader). Messages within a partition are ordered by offset.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="color:var(--amber)">▸ Offset</div>
+        <h4>Immutable position</h4>
+        <p>Every message has an offset — its position in the partition. Offsets only ever increase. Consumer commits offsets to track progress.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="color:var(--purple)">▸ Consumer Group</div>
+        <h4>Independent cursor</h4>
+        <p>A named group with its own offset per partition. Multiple groups on the same topic each receive every message independently.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-blue">
+      <div class="callout-title">Mental Model</div>
+      <p><strong>Topic = contract</strong> · <strong>Partition = parallelism unit</strong> · <strong>Offset = position</strong> · <strong>Consumer group = independent reader</strong></p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Topics & Partitions
+  ════════════════════════════════════════════ -->
+  <section class="section" id="topics">
+    <div class="section-label">Core Concepts</div>
+    <h2>Topics &amp; Partitions</h2>
+
+    <h3>How partition routing works</h3>
+    <p>The <strong>partition key</strong> is hashed to determine which partition a message lands on. Same key always → same partition → ordering guaranteed per key.</p>
+
+    <div class="partition-viz">
+      <div class="partition">
+        <div class="partition-header">Partition 0</div>
+        <div class="partition-msg"><span class="msg-off">off:0</span><span class="msg-key">http_requests</span><span class="msg-val">43.5</span></div>
+        <div class="partition-msg"><span class="msg-off">off:1</span><span class="msg-key">http_requests</span><span class="msg-val">88.1</span></div>
+        <div class="partition-msg"><span class="msg-off">off:2</span><span class="msg-key">http_requests</span><span class="msg-val">34.5</span></div>
+      </div>
+      <div class="partition">
+        <div class="partition-header">Partition 1</div>
+        <div class="partition-msg"><span class="msg-off">off:0</span><span class="msg-key">error_rate</span><span class="msg-val">61.7</span></div>
+        <div class="partition-msg"><span class="msg-off">off:1</span><span class="msg-key">error_rate</span><span class="msg-val">90.4</span></div>
+        <div class="partition-msg"><span class="msg-off">off:2</span><span class="msg-key">error_rate</span><span class="msg-val">15.6</span></div>
+      </div>
+      <div class="partition">
+        <div class="partition-header">Partition 2</div>
+        <div class="partition-msg"><span class="msg-off">off:0</span><span class="msg-key">p99_latency</span><span class="msg-val">68.4</span></div>
+        <div class="partition-msg"><span class="msg-off">off:1</span><span class="msg-key">cpu_usage</span><span class="msg-val">8.9</span></div>
+        <div class="partition-msg"><span class="msg-off">off:2</span><span class="msg-key">memory_used</span><span class="msg-val">32.8</span></div>
+      </div>
+    </div>
+
+    <h3>Key design rules</h3>
+    <ul>
+      <li><strong>High-cardinality keys</strong> distribute load evenly — <code>user_id</code>, <code>order_id</code>, <code>metric_name</code></li>
+      <li><strong>Low-cardinality keys</strong> create hot partitions — avoid <code>country</code>, <code>status</code>, <code>true/false</code></li>
+      <li><strong>null key</strong> = round-robin across all partitions — no ordering, maximum distribution</li>
+      <li><strong>Partitions can only increase</strong>, never decrease — set higher than you think you need</li>
+      <li><strong>Round up to next power of 2</strong> — 16, 32, 64, 128 — simplifies consistent hashing</li>
+    </ul>
+
+    <h3>Retention policies</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Policy</th><th>Config</th><th>Use case</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-blue">Time-based</span></td><td><code>log.retention.hours=168</code></td><td>Pipelines — data lives downstream (TSDB, ClickHouse)</td></tr>
+          <tr><td><span class="badge badge-amber">Size-based</span></td><td><code>log.retention.bytes=10737418240</code></td><td>Bounded storage regardless of time</td></tr>
+          <tr><td><span class="badge badge-green">Compaction</span></td><td><code>cleanup.policy=compact</code></td><td>CDC / state sync — keep latest value per key forever</td></tr>
+          <tr><td><span class="badge badge-purple">Infinite</span></td><td><code>log.retention.hours=-1</code></td><td>Event sourcing — full history for replay</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Producers & Acks
+  ════════════════════════════════════════════ -->
+  <section class="section" id="producers">
+    <div class="section-label">Core Concepts</div>
+    <h2>Producers &amp; Acknowledgements</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>acks setting</th><th>Durability</th><th>Latency</th><th>Use when</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>acks=0</code></td>
+            <td><span class="badge badge-red">none — fire &amp; forget</span></td>
+            <td>Lowest</td>
+            <td>Metrics where occasional loss is acceptable</td>
+          </tr>
+          <tr>
+            <td><code>acks=1</code></td>
+            <td><span class="badge badge-amber">leader only</span></td>
+            <td>Medium</td>
+            <td>Moderate durability, leader crash = possible loss</td>
+          </tr>
+          <tr>
+            <td><code>acks=all</code></td>
+            <td><span class="badge badge-green">all ISR replicas</span></td>
+            <td>Highest</td>
+            <td>Production always — zero data loss</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-green">
+      <div class="callout-title">Production Rule</div>
+      <p>Always pair <code>acks=all</code> with <code>min.insync.replicas=2</code> on the broker. Together they guarantee a write is on at least 2 replicas before the producer gets confirmation.</p>
+    </div>
+
+    <h3>Custom partitioner (dedicated partition ranges)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># Route each service to its own partition range</span>
+PARTITION_MAP = {
+    <span class="st">"order-svc"</span>:     <span class="nm">0</span>,   <span class="cm"># P0</span>
+    <span class="st">"inventory-svc"</span>: <span class="nm">1</span>,   <span class="cm"># P1</span>
+    <span class="st">"payment-svc"</span>:   <span class="nm">2</span>,   <span class="cm"># P2</span>
+}
+
+<span class="kw">def</span> <span class="fn">custom_partitioner</span>(key_bytes, all_partitions, available):
+    service = key_bytes.decode()
+    <span class="kw">if</span> service <span class="kw">in</span> PARTITION_MAP:
+        <span class="kw">return</span> PARTITION_MAP[service]
+    <span class="kw">return</span> hash(key_bytes) % len(all_partitions)
+
+producer = KafkaProducer(
+    bootstrap_servers=BOOTSTRAP,
+    partitioner=custom_partitioner,
+    acks=<span class="nm">1</span>,
+)</code></pre>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Consumers & Groups
+  ════════════════════════════════════════════ -->
+  <section class="section" id="consumers">
+    <div class="section-label">Core Concepts</div>
+    <h2>Consumers &amp; Consumer Groups</h2>
+
+    <h3>subscribe() vs assign()</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>API</th><th>Behaviour</th><th>Rebalance</th><th>Use when</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>subscribe(topic)</code></td>
+            <td>Kafka assigns partitions automatically. Partitions redistributed when consumers join/leave.</td>
+            <td><span class="badge badge-green">automatic</span></td>
+            <td>Standard consumer groups — most use cases</td>
+          </tr>
+          <tr>
+            <td><code>assign([TopicPartition])</code></td>
+            <td>You specify exact partitions. No group coordinator. No rebalancing ever.</td>
+            <td><span class="badge badge-amber">manual</span></td>
+            <td>Dedicated partition isolation per service</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>More consumers in same group vs more groups</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Action</th><th>Effect</th><th>Ceiling</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Add consumers to same group</strong></td>
+            <td>Partitions split between them — work is shared. Each message processed once.</td>
+            <td>Max consumers = partition count. Beyond that, extras are idle.</td>
+          </tr>
+          <tr>
+            <td><strong>Add a new consumer group</strong></td>
+            <td>New group gets its own independent cursor. Every message flows to every group.</td>
+            <td>No limit on number of groups.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Manual offset commit (always do this)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="kw">from</span> kafka <span class="kw">import</span> KafkaConsumer
+<span class="kw">from</span> kafka.structs <span class="kw">import</span> OffsetAndMetadata
+
+consumer = KafkaConsumer(
+    <span class="st">"metrics.raw"</span>,
+    bootstrap_servers=BOOTSTRAP,
+    group_id=<span class="st">"rollup-worker"</span>,
+    auto_offset_reset=<span class="st">"earliest"</span>,
+    enable_auto_commit=<span class="gr">False</span>,   <span class="cm"># always False in production</span>
+)
+
+<span class="kw">for</span> tp, msgs <span class="kw">in</span> consumer.poll(timeout_ms=<span class="nm">1000</span>).items():
+    <span class="kw">for</span> m <span class="kw">in</span> msgs:
+        process(m)
+    <span class="cm"># commit only after successful processing</span>
+    consumer.commit({
+        tp: OffsetAndMetadata(msgs[<span class="nm">-1</span>].offset + <span class="nm">1</span>, <span class="gr">None</span>)
+    })</code></pre>
+    </div>
+
+    <div class="callout callout-amber">
+      <div class="callout-title">Warning — auto-commit</div>
+      <p><code>enable_auto_commit=True</code> commits every 5 seconds regardless of whether processing succeeded. A crash mid-batch silently loses messages. Always use manual commit.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Replication & HWM
+  ════════════════════════════════════════════ -->
+  <section class="section" id="replication">
+    <div class="section-label">Core Concepts</div>
+    <h2>Replication &amp; High-Watermark</h2>
+
+    <h3>Why the high-watermark exists</h3>
+    <p>The <strong>LEO (Log End Offset)</strong> is the highest offset on the leader's disk. The <strong>HWM (High-Watermark)</strong> is the highest offset confirmed by all ISR replicas. Consumers can only read up to the HWM.</p>
+
+    <div class="hwm-row">
+      <div class="hwm-msg safe">off:0<br>✓</div>
+      <div class="hwm-msg safe">off:1<br>✓</div>
+      <div class="hwm-msg safe">off:2<br>✓</div>
+      <div class="hwm-msg safe">off:3<br>✓</div>
+      <div class="hwm-msg pending">off:4<br>⋯</div>
+      <div class="hwm-msg pending">off:5<br>⋯</div>
+    </div>
+    <div style="display:flex;gap:24px;margin-bottom:14px;flex-wrap:wrap">
+      <span class="hwm-label-green" style="font-family:var(--mono);font-size:12px">▲ HWM = 3  — consumer reads up to here</span>
+      <span class="hwm-label-amber" style="font-family:var(--mono);font-size:12px">▲ LEO = 5  — leader has these, followers don't yet</span>
+    </div>
+
+    <p>If Kafka allowed reading off:4 and off:5 and the leader crashed before replication completed, the new leader would only have off:3. The consumer would have processed messages that no longer exist anywhere — <strong>data loss</strong>.</p>
+
+    <h3>ISR — In-Sync Replicas</h3>
+    <ul>
+      <li>Followers that are caught up within <code>replica.lag.time.max.ms</code> (default 30s)</li>
+      <li>Leader drops a follower from ISR if it falls behind — write throughput is not blocked</li>
+      <li>HWM advances as soon as <code>min.insync.replicas</code> confirm — not necessarily all replicas</li>
+      <li>When a broker dies, controller elects the best ISR follower as new leader in ~10–30s</li>
+    </ul>
+
+    <h3>Replication factor guide</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>RF</th><th>Can lose</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr><td><code>1</code></td><td>Nothing — single point of loss</td><td>Local dev only</td></tr>
+          <tr><td><code>2</code></td><td>1 broker</td><td>Non-critical data</td></tr>
+          <tr><td><code>3</code></td><td>1 broker with zero data loss</td><td>All production workloads</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Brokers & Controller
+  ════════════════════════════════════════════ -->
+  <section class="section" id="brokers">
+    <div class="section-label">Core Concepts</div>
+    <h2>Brokers &amp; Controller</h2>
+
+    <p>The <strong>controller is not a separate process</strong> — it is a role held by one of your existing brokers. In KRaft mode (Kafka 3.3+), a Raft quorum among controller-eligible brokers handles election with no ZooKeeper dependency.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Legacy (ZooKeeper)</th><th>Modern (KRaft)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Controller election</strong></td><td>First broker to claim ZK ephemeral node</td><td>Raft consensus among quorum voters</td></tr>
+          <tr><td><strong>Metadata store</strong></td><td>ZooKeeper</td><td><code>@metadata</code> internal topic</td></tr>
+          <tr><td><strong>Failover time</strong></td><td>~30–60 seconds</td><td>Milliseconds</td></tr>
+          <tr><td><strong>Partition ceiling</strong></td><td>~200K (ZK bottleneck)</td><td>Millions</td></tr>
+          <tr><td><strong>Ops overhead</strong></td><td>Two systems to manage</td><td>Single system</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Three controller responsibilities</h3>
+    <ul>
+      <li><strong>Leader election</strong> — when a broker dies, pick next ISR replica as leader for all affected partitions</li>
+      <li><strong>Partition reassignment</strong> — when you add brokers or change partition count, coordinate replica moves</li>
+      <li><strong>Metadata authority</strong> — single source of truth for which broker leads which partition</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Partition Sizing
+  ════════════════════════════════════════════ -->
+  <section class="section" id="partition-sizing">
+    <div class="section-label">Design Patterns</div>
+    <h2>Partition Sizing</h2>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">formula</span></div>
+      <pre><code>P_throughput = ceil( peak_MB/s  ÷  broker_ceiling_MB/s_per_partition )
+P_consumer   = ceil( peak_msg/s ÷  msgs_per_consumer_per_s )
+P_min        = max( P_throughput, P_consumer )
+P_final      = nextPowerOf2( P_min × (1 + headroom%) )</code></pre>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Scale</th><th>Msg/s</th><th>Partitions</th><th>Consumers/group</th><th>Brokers</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-green">small</span></td><td>&lt; 10K</td><td>8–16</td><td>8–16</td><td>3</td></tr>
+          <tr><td><span class="badge badge-blue">medium</span></td><td>10K–100K</td><td>32–64</td><td>32–64</td><td>3–5</td></tr>
+          <tr><td><span class="badge badge-amber">large</span></td><td>100K–1M</td><td>128–256</td><td>128–256</td><td>6–12</td></tr>
+          <tr><td><span class="badge badge-red">very large</span></td><td>&gt; 1M</td><td>512–2048</td><td>512–2048</td><td>12–30+</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-amber">
+      <div class="callout-title">Hard Ceiling</div>
+      <p>Max ~4,000 partitions per broker. Each partition = open file handles + memory for ISR tracking. Beyond 4K per broker, controller election and rebalances slow significantly.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Use Cases
+  ════════════════════════════════════════════ -->
+  <section class="section" id="use-cases">
+    <div class="section-label">Design Patterns</div>
+    <h2>Use Case Patterns</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Use case</th><th>Partition key</th><th>Retention</th><th>Compaction</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Event-driven microservices</strong></td><td><code>entity_id</code></td><td>7 days</td><td>No</td></tr>
+          <tr><td><strong>Database CDC replication</strong></td><td><code>primary_key</code></td><td>Compacted</td><td>Yes</td></tr>
+          <tr><td><strong>Metric/telemetry pipeline</strong></td><td><code>metric_name</code></td><td>2 days</td><td>No</td></tr>
+          <tr><td><strong>Activity / audit log</strong></td><td><code>user_id</code></td><td>90 days</td><td>No</td></tr>
+          <tr><td><strong>CQRS / event sourcing</strong></td><td><code>aggregate_id</code></td><td>Infinite</td><td>No</td></tr>
+          <tr><td><strong>Stream processing output</strong></td><td>join key</td><td>Depends</td><td>On state topics</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Stream Processing
+  ════════════════════════════════════════════ -->
+  <section class="section" id="stream-processing">
+    <div class="section-label">Design Patterns</div>
+    <h2>Stream Processing</h2>
+
+    <div class="flow">
+      <div class="flow-node highlight">metrics.raw</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">filter(val &gt; threshold)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">groupBy(metric_name)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">windowedAvg(1m)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node green">metrics.1m_rollup</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Kafka Streams</th><th>Apache Flink</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Deployment</strong></td><td>Library inside your app JVM</td><td>Separate cluster (TaskManagers)</td></tr>
+          <tr><td><strong>Infrastructure</strong></td><td>Zero extra — Kafka only</td><td>Cluster + checkpoint storage</td></tr>
+          <tr><td><strong>Data sources</strong></td><td>Kafka only</td><td>Kafka, DB, S3, files simultaneously</td></tr>
+          <tr><td><strong>Best for</strong></td><td>Enrichment, rollups, filter-and-route</td><td>Complex joins, ML features, fraud detection</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Failure Modes
+  ════════════════════════════════════════════ -->
+  <section class="section" id="failure-modes">
+    <div class="section-label">Design Patterns</div>
+    <h2>Failure Modes</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Failure</th><th>What happens</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Consumer lag grows</strong></td>
+            <td>Consumer slower than producer. Offset gap widens.</td>
+            <td>Add consumers up to partition count. Then add partitions.</td>
+          </tr>
+          <tr>
+            <td><strong>Crash mid-batch (auto-commit)</strong></td>
+            <td>Offset already advanced. Messages lost silently.</td>
+            <td>Always <code>enable_auto_commit=False</code>. Manual commit after processing.</td>
+          </tr>
+          <tr>
+            <td><strong>Rebalance storm</strong></td>
+            <td>Consumers join/leave rapidly. Throughput drops to zero.</td>
+            <td>Tune <code>session.timeout.ms</code>. Use static membership <code>group.instance.id</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>Hot partition</strong></td>
+            <td>Bad key choice. One consumer overwhelmed, rest idle.</td>
+            <td>Choose high-cardinality keys. Add random suffix for uniform distribution.</td>
+          </tr>
+          <tr>
+            <td><strong>Message too large</strong></td>
+            <td>Default max 1 MB. Rejected by broker.</td>
+            <td>Store payload in S3, publish reference pointer. Or increase <code>message.max.bytes</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>Broker leader failure</strong></td>
+            <td>Consumers stall ~10–30s during ISR election.</td>
+            <td>RF≥3, <code>min.insync.replicas=2</code>, <code>acks=all</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: microk8s Deploy
+  ════════════════════════════════════════════ -->
+  <section class="section" id="setup-deploy">
+    <div class="section-label">microk8s Setup</div>
+    <h2>Deploy Kafka on microk8s</h2>
+
+    <p>Uses official <code>apache/kafka:3.9.0</code> image in KRaft combined mode. Two listeners — <code>INTERNAL</code> for pod-to-pod traffic, <code>EXTERNAL</code> exposed via NodePort 30092 for laptop access.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — deploy</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># Enable required addons</span>
+microk8s enable dns storage
+
+<span class="cm"># Deploy (script auto-detects your node IP)</span>
+chmod +x deploy.sh && bash deploy.sh
+
+<span class="cm"># Get your bootstrap address</span>
+NODE_IP=$(microk8s kubectl get nodes \
+  -o jsonpath=<span class="st">'{.items[0].status.addresses[?(@.type=="InternalIP")].address}'</span>)
+echo <span class="st">"Bootstrap: $NODE_IP:30092"</span></code></pre>
+    </div>
+
+    <h3>Key manifest snippet — two-listener pattern</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="kw">env:</span>
+  <span class="cm"># Both listeners defined — internal (pod DNS) + external (NodePort)</span>
+  - name: <span class="nm">KAFKA_LISTENERS</span>
+    value: <span class="st">"INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094"</span>
+
+  - name: <span class="nm">KAFKA_ADVERTISED_LISTENERS</span>
+    value: <span class="st">"INTERNAL://kafka-headless.kafka.svc.cluster.local:9092,EXTERNAL://NODE_IP:30092"</span>
+
+  - name: <span class="nm">KAFKA_PROCESS_ROLES</span>
+    value: <span class="st">"broker,controller"</span>   <span class="cm"># KRaft combined mode — no ZooKeeper</span></code></pre>
+    </div>
+
+    <div class="callout callout-blue">
+      <div class="callout-title">Why two listeners?</div>
+      <p>Kafka clients connect directly to brokers after bootstrapping. The <code>EXTERNAL</code> advertised listener must be your actual laptop-reachable node IP, not a Kubernetes DNS name. The <code>INTERNAL</code> listener handles pod-to-pod traffic inside the cluster using stable Kubernetes DNS.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Python Samples
+  ════════════════════════════════════════════ -->
+  <section class="section" id="python-setup">
+    <div class="section-label">microk8s Setup</div>
+    <h2>Python Samples</h2>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — install</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># kafka-python-ng fixes Python 3.12 compatibility</span>
+pip install kafka-python-ng</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — run order</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code>python3 01_create_topics.py  192.168.10.91:30092   <span class="cm"># create topics via admin client</span>
+python3 02_producer.py       192.168.10.91:30092   <span class="cm"># send 30 messages</span>
+python3 03_consumer.py       192.168.10.91:30092   <span class="cm"># consume with manual commit</span>
+python3 04_consumer_groups.py 192.168.10.91:30092  <span class="cm"># two groups fan-out demo</span>
+python3 05_check_lag.py      192.168.10.91:30092   <span class="cm"># consumer lag per partition</span></code></pre>
+    </div>
+
+    <div class="callout callout-blue">
+      <div class="callout-title">Note — kafka-python vs kafka-python-ng</div>
+      <p><code>kafka-python==2.0.2</code> has a known bug with Python 3.12 (<code>ModuleNotFoundError: kafka.vendor.six.moves</code>). Use <code>kafka-python-ng</code> instead — it is a maintained fork with the same API and full Python 3.12 support.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: KEDA
+  ════════════════════════════════════════════ -->
+  <section class="section" id="keda">
+    <div class="section-label">microk8s Setup</div>
+    <h2>KEDA Consumer Autoscaling</h2>
+
+    <p>KEDA watches Kafka consumer lag and automatically scales your consumer Deployment up or down.</p>
+
+    <div class="flow">
+      <div class="flow-node">lag &gt; 5000</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node highlight">KEDA detects</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node green">scale replicas up</div>
+    </div>
+    <div class="flow" style="margin-top:4px">
+      <div class="flow-node">lag &lt; 1000</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node highlight">cooldown 30s</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node amber">scale replicas down</div>
+    </div>
+
+    <h3>Scaling formula</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">formula</span></div>
+      <pre><code>desiredReplicas = ceil( totalLag / lagThreshold )
+               = ceil( 15000   / 5000          )
+               = 3  (capped at maxReplicaCount)</code></pre>
+    </div>
+
+    <h3>ScaledObject</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="kw">apiVersion:</span> keda.sh/v1alpha1
+<span class="kw">kind:</span> ScaledObject
+<span class="kw">metadata:</span>
+  <span class="kw">name:</span> rollup-consumer-scaler
+  <span class="kw">namespace:</span> kafka
+<span class="kw">spec:</span>
+  <span class="kw">scaleTargetRef:</span>
+    <span class="kw">name:</span> rollup-consumer
+  <span class="kw">minReplicaCount:</span> <span class="nm">1</span>     <span class="cm"># always keep 1 alive</span>
+  <span class="kw">maxReplicaCount:</span> <span class="nm">3</span>     <span class="cm"># cap = partition count</span>
+  <span class="kw">cooldownPeriod:</span>  <span class="nm">30</span>    <span class="cm"># seconds before scale-down</span>
+  <span class="kw">pollingInterval:</span> <span class="nm">5</span>     <span class="cm"># check lag every 5s</span>
+  <span class="kw">triggers:</span>
+    - <span class="kw">type:</span> kafka
+      <span class="kw">metadata:</span>
+        <span class="kw">bootstrapServers:</span> <span class="st">"kafka-headless.kafka.svc.cluster.local:9092"</span>
+        <span class="kw">consumerGroup:</span>   <span class="st">"rollup-worker"</span>
+        <span class="kw">topic:</span>           <span class="st">"metrics.raw"</span>
+        <span class="kw">lagThreshold:</span>    <span class="st">"5000"</span></code></pre>
+    </div>
+
+    <h3>Install &amp; run demo</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># Install KEDA</span>
+microk8s kubectl apply -f \
+  https://github.com/kedacore/keda/releases/download/v2.13.1/keda-2.13.1.yaml
+
+<span class="cm"># Terminal 1 — deploy and watch</span>
+microk8s kubectl apply -f keda-demo.yaml
+python3 watch_scale.py 192.168.10.91:30092
+
+<span class="cm"># Terminal 2 — flood topic to trigger autoscale</span>
+python3 flood_producer.py 192.168.10.91:30092 20000</code></pre>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Stack Manager
+  ════════════════════════════════════════════ -->
+  <section class="section" id="stack-manager">
+    <div class="section-label">microk8s Setup</div>
+    <h2>Local Stack Manager</h2>
+
+    <p>Save replica counts for any namespace, scale everything to 0 to free RAM, restore exactly later. State stored in <code>~/.k8s-stacks/&lt;namespace&gt;.env</code>.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — daily workflow</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># Install once</span>
+sudo cp k8s-stack.sh /usr/local/bin/k8s-stack
+chmod +x /usr/local/bin/k8s-stack
+
+<span class="cm"># Evening — free up RAM</span>
+k8s-stack down kafka
+k8s-stack down monitoring
+
+<span class="cm"># Morning — restore</span>
+k8s-stack up kafka
+k8s-stack up monitoring
+
+<span class="cm"># Or all stacks at once</span>
+k8s-stack down --all
+k8s-stack up   --all
+
+<span class="cm"># See what's running vs saved</span>
+k8s-stack status kafka
+k8s-stack list</code></pre>
+    </div>
+
+    <h3>State file format</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">~/.k8s-stacks/kafka.env</span></div>
+      <pre><code><span class="cm"># k8s-stack state for namespace: kafka</span>
+<span class="cm"># saved at: 2024-03-14 10:30:00</span>
+<span class="nm">NAMESPACE</span>=kafka
+
+<span class="cm"># Deployments</span>
+<span class="nm">rollup-consumer</span>=<span class="gr">3</span>
+
+<span class="cm"># StatefulSets (prefixed with sts:)</span>
+<span class="nm">sts:kafka</span>=<span class="gr">1</span></code></pre>
+    </div>
+    <p>You can <strong>edit this file directly</strong> — change <code>rollup-consumer=3</code> to <code>rollup-consumer=1</code> if you want it to start with fewer replicas next time.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Cheatsheet
+  ════════════════════════════════════════════ -->
+  <section class="section" id="cheatsheet">
+    <div class="section-label">Quick Reference</div>
+    <h2>System Design Cheatsheet</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Partition key</strong></td><td>High cardinality entity id. Stateful aggregation → metric/group key. No ordering needed → null (round-robin).</td></tr>
+          <tr><td><strong>Partition count</strong></td><td><code>max(throughput÷broker_ceiling, ingest_rate÷consumer_capacity)</code> × headroom. Round up to power of 2.</td></tr>
+          <tr><td><strong>Replication factor</strong></td><td>Always 3 in production. Never 1. Pair with <code>min.insync.replicas=2</code>.</td></tr>
+          <tr><td><strong>Consumer scaling</strong></td><td>Lag growing → add consumers (up to partition count). New use case → add new group.</td></tr>
+          <tr><td><strong>Retention</strong></td><td>Pipeline=short (days). Replay=long (weeks). State sync=compaction. Audit=long no-compaction.</td></tr>
+          <tr><td><strong>Offset commit</strong></td><td>Always manual. Commit after successful processing. Never auto-commit.</td></tr>
+          <tr><td><strong>Delivery semantics</strong></td><td>Design consumers idempotent regardless. At-least-once is default and safe when idempotent.</td></tr>
+          <tr><td><strong>Max partitions/broker</strong></td><td>4,000. Beyond this: controller elections slow, rebalances degrade.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION: Commands
+  ════════════════════════════════════════════ -->
+  <section class="section" id="commands">
+    <div class="section-label">Quick Reference</div>
+    <h2>Useful Commands</h2>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — topic management</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># List topics</span>
+microk8s kubectl exec -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+<span class="cm"># Describe topic (partitions, leaders, ISR)</span>
+microk8s kubectl exec -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+    --bootstrap-server localhost:9092 --describe --topic metrics.raw
+
+<span class="cm"># Create topic</span>
+microk8s kubectl exec -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+    --bootstrap-server localhost:9092 --create \
+    --topic my-topic --partitions 3 --replication-factor 1</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — consumer groups</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># Describe consumer group lag</span>
+microk8s kubectl exec -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+    --bootstrap-server localhost:9092 \
+    --describe --group rollup-worker
+
+<span class="cm"># List all consumer groups</span>
+microk8s kubectl exec -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+    --bootstrap-server localhost:9092 --list
+
+<span class="cm"># Reset consumer group offset to beginning (replay)</span>
+microk8s kubectl exec -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+    --bootstrap-server localhost:9092 \
+    --group rollup-worker --topic metrics.raw \
+    --reset-offsets --to-earliest --execute</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — quick console test</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code><span class="cm"># Console producer — type messages manually</span>
+microk8s kubectl exec -it -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-console-producer.sh \
+    --bootstrap-server localhost:9092 --topic metrics.raw
+
+<span class="cm"># Console consumer — read from beginning</span>
+microk8s kubectl exec -it -n kafka kafka-0 -- \
+  /opt/kafka/bin/kafka-console-consumer.sh \
+    --bootstrap-server localhost:9092 \
+    --topic metrics.raw --from-beginning</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash — stack manager</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+      <pre><code>k8s-stack save   kafka      <span class="cm"># save current replica counts</span>
+k8s-stack down   kafka      <span class="cm"># scale everything to 0</span>
+k8s-stack up     kafka      <span class="cm"># restore from saved state</span>
+k8s-stack status kafka      <span class="cm"># compare live vs saved</span>
+k8s-stack down   --all      <span class="cm"># scale ALL saved stacks to 0</span>
+k8s-stack up     --all      <span class="cm"># restore ALL saved stacks</span>
+k8s-stack list              <span class="cm"># list all saved stacks</span></code></pre>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>Kafka &amp; Kubernetes Engineering Reference</span>
+    <span>apache/kafka:3.9.0 · KRaft · microk8s · kafka-python-ng</span>
+  </footer>
+
+</main>
+</div>
+
+<script>
+  // ── Copy button ──
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'copied!';
+      btn.style.color = 'var(--green)';
+      setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+    });
+  }
+
+  // ── Active nav link on scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks  = document.querySelectorAll('.nav-link');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.nav-link[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
