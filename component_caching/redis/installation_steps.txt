@@ -1,0 +1,192 @@
+We use a StatefulSet (not a Deployment) because Redis needs a stable pod identity and stable persistent storage. Here are all the manifests in order.
+
+Step 1 — Enable the storage addon (one-time)
+bash#  microk8s enable dns storage
+
+Step 2 — Create the namespace
+bash#  kubectl create namespace redis-dev
+
+Step 3 — ConfigMap — save as redis-config.yaml
+yamlapiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: redis-dev
+data:
+  redis.conf: |
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    appendonly yes
+    appendfsync everysec
+    protected-mode no
+
+Step 4 — Secret — save as redis-secret.yaml
+yamlapiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secret
+  namespace: redis-dev
+type: Opaque
+stringData:
+  password: "devpassword123"
+
+Step 5 — StatefulSet + PVC — save as redis-statefulset.yaml
+yamlapiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: redis-dev
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "/etc/redis/redis.conf"]
+          args: ["--requirepass", "$(REDIS_PASSWORD)"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: config
+              mountPath: /etc/redis
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "320Mi"
+              cpu: "300m"
+      volumes:
+        - name: config
+          configMap:
+            name: redis-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+
+Step 6 — Services — save as redis-services.yaml
+yaml# ClusterIP — for other pods inside the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: redis-dev
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+---
+# NodePort — for connecting from your laptop directly
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-nodeport
+  namespace: redis-dev
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      nodePort: 30379
+  type: NodePort
+
+Step 7 — Redis Commander (UI) — save as redis-commander.yaml
+yamlapiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-commander
+  namespace: redis-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-commander
+  template:
+    metadata:
+      labels:
+        app: redis-commander
+    spec:
+      containers:
+        - name: redis-commander
+          image: rediscommander/redis-commander:latest
+          env:
+            - name: REDIS_HOSTS
+              value: "local:redis:6379:0:devpassword123"
+          ports:
+            - containerPort: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-commander
+  namespace: redis-dev
+spec:
+  selector:
+    app: redis-commander
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30881
+  type: NodePort
+
+Step 8 — Apply everything
+bash#  kubectl apply -f redis-config.yaml
+kubectl apply -f redis-secret.yaml
+kubectl apply -f redis-statefulset.yaml
+kubectl apply -f redis-services.yaml
+kubectl apply -f redis-commander.yaml
+
+Step 9 — Verify it's running
+bash#  # Check pods are up
+kubectl get pods -n redis-dev
+
+# Should show:
+# redis-0               1/1   Running   0   60s
+# redis-commander-xxx   1/1   Running   0   60s
+
+Step 10 — Connect and test
+bash#  # Option A: redis-cli from inside the pod
+kubectl exec -it redis-0 -n redis-dev -- redis-cli -a devpassword123
+
+# Option B: from your laptop (if redis-cli is installed)
+redis-cli -h localhost -p 30379 -a devpassword123
+
+# Quick smoke test
+127.0.0.1:30379> PING
+PONG
+127.0.0.1:30379> SET interview:prep "redis"
+OK
+127.0.0.1:30379> GET interview:prep
+"redis"
+127.0.0.1:30379> TTL interview:prep
+(integer) -1
+Open the UI at http://localhost:30881 — Redis Commander gives you a browser-based view of all keys, values, and memory stats.
+
+Quick reference — what each piece does:
+ResourceWhyStatefulSetStable pod name (redis-0), stable PVC binding on restartConfigMapExternalises redis.conf — change config without rebuilding the imageSecretKeeps the password out of your YAML historyPVC via volumeClaimTemplatesAOF data survives pod restartsClusterIPOther services in-cluster reach Redis at redis:6379NodePort 30379Your laptop can hit Redis directly for dev/testingredis-commanderVisual UI — browse keys, memory, run commands
+Once this is up, we can move straight into the practical exercises — rate limiter, cache-aside pattern, or Streams consumer group. What do you want to build first?

@@ -1,0 +1,28 @@
+# ClusterIP — for other pods inside the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: redis-dev
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+---
+# NodePort — for connecting from your laptop directly
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-nodeport
+  namespace: redis-dev
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      nodePort: 30379
+  type: NodePort
