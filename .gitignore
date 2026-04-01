@@ -5,3 +5,12 @@ component_messaging/api_based/analytics-service/venv/
 component_messaging/api_based/order-service/venv/
 component_messaging/rabbitmq_based/analytics-service/venv/
 component_messaging/rabbitmq_based/order-service/venv/
+
+# .gitignore
+terraform/prod-infra/.terraform/
+terraform/prod-infra/.terraform.lock.hcl
+terraform/prod-infra/terraform.tfstate
+terraform/prod-infra/terraform.tfstate.backup
+terraform/prod-infra/*.tfvars
+# Never commit state or var files with secrets
+
