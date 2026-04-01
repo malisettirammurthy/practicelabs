@@ -31,3 +31,23 @@ output "isolated_subnet_ids" {
   description = "Map of isolated subnet name => ID"
   value       = { for k, v in aws_subnet.isolated : k => v.id }
 }
+
+output "igw_id" {
+  description = "Internet Gateway ID"
+  value       = aws_internet_gateway.main.id
+}
+
+output "nat_gateway_ids" {
+  description = "Map of AZ => NAT Gateway ID"
+  value       = { for k, v in aws_nat_gateway.main : k => v.id }
+}
+
+output "public_route_table_id" {
+  description = "Public route table ID"
+  value       = aws_route_table.public.id
+}
+
+output "private_route_table_ids" {
+  description = "Map of AZ => private route table ID"
+  value       = { for k, v in aws_route_table.private : k => v.id }
+}
