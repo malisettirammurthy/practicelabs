@@ -51,3 +51,18 @@ output "private_route_table_ids" {
   description = "Map of AZ => private route table ID"
   value       = { for k, v in aws_route_table.private : k => v.id }
 }
+
+output "alb_sg_id" {
+  description = "ALB security group ID"
+  value       = aws_security_group.alb.id
+}
+
+output "workers_sg_id" {
+  description = "Workers security group ID"
+  value       = aws_security_group.workers.id
+}
+
+output "db_sg_id" {
+  description = "DB security group ID"
+  value       = aws_security_group.db.id
+}
