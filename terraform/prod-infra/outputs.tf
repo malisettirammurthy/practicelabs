@@ -66,3 +66,24 @@ output "db_sg_id" {
   description = "DB security group ID"
   value       = aws_security_group.db.id
 }
+
+
+output "alb_dns_name" {
+  description = "ALB DNS name - use this in Route53 alias record"
+  value       = aws_lb.main.dns_name
+}
+
+output "alb_arn" {
+  description = "ALB ARN"
+  value       = aws_lb.main.arn
+}
+
+output "alb_zone_id" {
+  description = "ALB hosted zone ID - needed for Route53 alias record"
+  value       = aws_lb.main.zone_id
+}
+
+output "target_group_arn" {
+  description = "Target group ARN"
+  value       = aws_lb_target_group.app.arn
+}
